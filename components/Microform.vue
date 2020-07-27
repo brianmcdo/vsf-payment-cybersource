@@ -70,10 +70,16 @@
                 {{ option.label }}
               </option>
             </select>
+
             <span class="help-error" v-if="errors.cardExpirationYear">{{ errors.cardExpirationYear }}</span>
             <span class="help-error" v-if="$v.cardInfo.expirationYear.$error && !$v.cardInfo.expirationYear.required">{{ t('Expiration Year is required.') }}</span>
             <span class="help-error" v-if="$v.cardInfo.expirationYear.$error && !$v.cardInfo.expirationYear.numeric">{{ t('Expiration Year should be numeric.') }}</span>
             <span class="help-error" v-if="$v.cardInfo.expirationYear.$error && !$v.cardInfo.expirationYear.minLength || !$v.cardInfo.expirationYear.maxLength">{{ t('Expiration Year should be 4 digits length.') }}</span>
+          </div>
+          <div class="col-12">
+            <vue-recaptcha v-if="recaptchaConfig.key" ref="recaptcha" @verify="this.onRecaptchaVerify"
+                           @expired="this.onRecaptchaExpired" :sitekey="recaptchaConfig.key"></vue-recaptcha>
+            <span class="help-error" v-if="errors.recaptcha">{{ errors.recaptcha }}</span>
           </div>
         </div>
       </div>
@@ -245,9 +251,12 @@ import { required, minLength, maxLength } from 'vuelidate/lib/validators'
 import i18n from '@vue-storefront/i18n'
 import rootStore from '@vue-storefront/core/store'
 import { setTimeout, clearTimeout } from 'timers'
+import VueRecaptcha from 'vue-recaptcha';
+import config from 'config'
 
 export default {
   name: 'CybersourceMicroform',
+  components: { VueRecaptcha },
   data () {
     return {
       microform: null,
@@ -274,10 +283,15 @@ export default {
         message: null,
         cardNumber: null,
         cardExpirationMonth: null,
-        cardExpirationYear: null
+        cardExpirationYear: null,
+        recaptcha: null
       },
       timeout: null,
-      month: ''
+      month: '',
+      recaptchaConfig: config.cybersource.recaptcha || {},
+      recaptcha: {
+        token: null
+      }
     }
   },
   computed: {
@@ -372,9 +386,16 @@ export default {
         message: null,
         cardNumber: null,
         cardExpirationMonth: null,
-        cardExpirationYear: null
+        cardExpirationYear: null,
+        recaptcha: null,
       }
       this.$v.$touch()
+
+      this.onRecaptchaSubmit()
+      if (this.recaptchaConfig.key && !this.recaptcha.token) {
+        return false;
+      }
+
       if (this.$v.$invalid || this.disabled) {
         return false
       } else {
@@ -433,7 +454,8 @@ export default {
             await this.$store.dispatch('payment-cybersource/addPaymentData', {
               ...token,
               ...options,
-              quote_masked_id: this.$store.state.cart.cartServerToken
+              quote_masked_id: this.$store.state.cart.cartServerToken,
+              recaptcha: this.recaptcha.token
             })
             resolve(true)
           }
@@ -455,6 +477,20 @@ export default {
           maxLength: maxLength(4)
         }
       }
+    }
+  },
+
+  onRecaptchaVerify (token) {
+    this.$refs.recaptcha.reset()
+    this.recaptcha.token = token
+  },
+  onRecaptchaExpired () {
+    this.recaptcha.token = null
+    this.$refs.recaptcha.reset()
+  },
+  onRecaptchaSubmit () {
+    if (this.recaptchaConfig.key) {
+      this.$refs.recaptcha.execute()
     }
   }
 }
