@@ -77,8 +77,8 @@
             <span class="help-error" v-if="$v.cardInfo.expirationYear.$error && !$v.cardInfo.expirationYear.minLength || !$v.cardInfo.expirationYear.maxLength">{{ t('Expiration Year should be 4 digits length.') }}</span>
           </div>
           <div class="col-12">
-            <vue-recaptcha v-if="recaptchaConfig.key" ref="recaptcha" @verify="this.onRecaptchaVerify"
-                           @expired="this.onRecaptchaExpired" :sitekey="recaptchaConfig.key"></vue-recaptcha>
+            <vue-recaptcha v-if="recaptchaConfig.key" size="invisible" ref="recaptcha" @verify="onVerify" :loadRecaptchaScript="true"
+                           @expired="onExpired" :sitekey="recaptchaConfig.key"></vue-recaptcha>
             <span class="help-error" v-if="errors.recaptcha">{{ errors.recaptcha }}</span>
           </div>
         </div>
@@ -323,6 +323,18 @@ export default {
     t (string) {
       return i18n.t(string)
     },
+    onVerify (token) {
+      this.recaptcha.token = token
+    },
+    onExpired () {
+      this.recaptcha.token = null
+      this.$refs.recaptcha.reset()
+    },
+    onRecaptchaSubmit () {
+      if (this.recaptchaConfig.key) {
+        this.$refs.recaptcha.execute()
+      }
+    },
     async init () {
       this.block()
       this.cancelReload()
@@ -477,20 +489,6 @@ export default {
           maxLength: maxLength(4)
         }
       }
-    }
-  },
-
-  onRecaptchaVerify (token) {
-    this.$refs.recaptcha.reset()
-    this.recaptcha.token = token
-  },
-  onRecaptchaExpired () {
-    this.recaptcha.token = null
-    this.$refs.recaptcha.reset()
-  },
-  onRecaptchaSubmit () {
-    if (this.recaptchaConfig.key) {
-      this.$refs.recaptcha.execute()
     }
   }
 }
